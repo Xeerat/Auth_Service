@@ -11,5 +11,8 @@ class Users(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(unique=True)
-    name: Mapped[str] = mapped_column(unique=True)
+    name: Mapped[str] = mapped_column()
+    surname: Mapped[str] = mapped_column()
+    middle_name: Mapped[str] = mapped_column()
     password: Mapped[str] = mapped_column()
+    is_active: Mapped[bool] = mapped_column()

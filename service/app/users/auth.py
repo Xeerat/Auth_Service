@@ -2,8 +2,11 @@ from datetime import datetime, timedelta, timezone
 
 from passlib.context import CryptContext
 from jose import jwt
+from pydantic import EmailStr
 
 from database import AUTH_DATA
+from dao.dao_models import UsersDAO
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -22,19 +25,19 @@ def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(name: str) -> str:
+def create_access_token(email: EmailStr) -> str:
     """
     Создает токен для пользователя
 
     Args:
-        name: Имя пользователя
+        email: Электронная почта
     
     Returns:
         Токен пользователя
     """
 
     expire = datetime.now(timezone.utc) + timedelta(days=14)
-    to_encode = {"name": name, "exp": expire}
+    to_encode = {"email": email, "exp": expire}
 
     try:
         encode_jwt = jwt.encode(
@@ -48,7 +51,7 @@ def create_access_token(name: str) -> str:
         return encode_jwt
 
 
-def decode_access_token(token: str) -> str:
+def decode_access_token(token: str) -> EmailStr:
     """
     Расшифровывает токен пользователя
 
@@ -56,7 +59,7 @@ def decode_access_token(token: str) -> str:
         token: токен пользователя
     
     Returns:
-        Имя пользователя
+        Электронную почту пользователя
     """
 
     try:
@@ -68,4 +71,26 @@ def decode_access_token(token: str) -> str:
     except Exception as error:
         raise error
     else:
-        return user_data.get("name")
+        return user_data.get("email")
+
+
+def verify_password(email: EmailStr, password: str) -> bool:
+    """
+    Проверяет, соответствует ли введённый пароль сохранённому хэшу.
+
+    Args:
+        email: Электронная почта пользователя.
+        password: Пароль, который нужно проверить.
+    
+    Returns:
+        True - если пароль совпал, иначе False.
+    """
+
+    user = UsersDAO.find_user(email=email)
+    if isinstance(user, bool):
+        return False
+    
+    if pwd_context.verify(password, user.password) is False:
+        return False
+
+    return True

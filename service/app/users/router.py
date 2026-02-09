@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Response, Request
 
-from users.validation import SUser_registration
+from users.validation import SUser_registration, SUser_authentication
+from users.validation import SUser_update_data
 from users.auth import hash_password, create_access_token
 from users.auth import decode_access_token
+from migration.models import Users
 from dao.dao_models import UsersDAO
 
 
@@ -13,29 +15,78 @@ router = APIRouter(prefix="/auth", tags=['Auth'])
 def user_register(data: SUser_registration, response: Response) -> dict:
     """Регистрирует нового пользователя в базе данных."""
     
-    found = UsersDAO.find_user(email=data.email, name=data.name)
-    if found:
-        return {"message": "Такой пользователь уже существует"}
+    found = UsersDAO.find_user(email=data.email)
+    if isinstance(found, Users):
+        return {"message": "Пользователь с таким email уже зарегистрирован."}
     
-    data = data.model_dump()
-    del data["confirm_password"]
-    data["password"] = hash_password(data["password"])
+    # Заменяем пароль на хэшированный
+    data = data.model_copy(update={"password": hash_password(data.password)})
 
-    UsersDAO.add_data(**data)
+    if found:
+        UsersDAO.update_user(
+            email=data.email, 
+            **data.model_dump(exclude={"email", "confirm_password"})
+        )
+    else:
+        UsersDAO.add_user(
+            name=data.name, 
+            email=data.email,
+            password=data.password,
+            surname= data.surname,
+            middle_name=data.middle_name
+        )
 
-    token = create_access_token(data.get("name"))
+    token = create_access_token(data.email)
     response.set_cookie(key="users_access_token", value=token, httponly=True)
 
-    return {"message": "Пользователь успешно зарегистрирован"}
+    return {"message": "Пользователь успешно зарегистрирован."}
+
+
+@router.post("/logout/", summary="Выход из профиля")
+def user_logout(response: Response) -> dict:
+    """Разлогинивает пользователя."""
+
+    response.delete_cookie(key="users_access_token")
+    return {"message": "Пользователь успешно разлогинен."}
+
+
+@router.post("/login/", summary="Аутентификация пользователя")
+def user_login(data: SUser_authentication, response: Response) -> dict:
+    """Входит в аккаунт пользователя."""
+    
+    token = create_access_token(email=data.email)
+    response.set_cookie(key="users_access_token", value=token, httponly=True)
+
+    return {"message": "Пользователь успешно вошел в аккаунт."}
 
 
 @router.post("/delete/", summary="Удаление пользователя")
 def user_delete(request: Request, response: Response) -> dict:
-    """Удаляет пользователя"""
+    """Удаляет аккаунт пользователя из базы данных"""
 
     token = request.cookies.get("users_access_token")
-    user_name = decode_access_token(token)
-    UsersDAO.delete_user(user_name)
+    user_email = decode_access_token(token)
+    UsersDAO.delete_user(user_email)
 
     response.delete_cookie(key="users_access_token")
     return {"message": "Пользователь успешно удален"}
+
+
+@router.post("/update/", summary="Обновление данные пользователя")
+def user_update(data: SUser_update_data, request: Request) -> dict:
+    """Обновляет данные пользователя."""
+
+    token = request.cookies.get("users_access_token")
+    user_email = decode_access_token(token)
+
+    data = data.model_dump()
+    for key in list(data.keys()):
+        if data[key] is None:
+            del data[key]
+
+    if data.get("password") is not None:
+        data["password"] = hash_password(data["password"])
+
+    UsersDAO.update_user(email=user_email, **data)
+
+    return {"message": "Данные успешно изменены"}
