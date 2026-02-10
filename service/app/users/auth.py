@@ -18,10 +18,10 @@ def hash_password(password: str) -> str:
     Хэширует пароль пользователя.
     
     Args:
-        password: пароль для хеширования
+        password: пароль для хеширования.
     
     Returns:
-        Хэш пароля
+        Хэш пароля.
     """
 
     return pwd_context.hash(password)
@@ -29,39 +29,45 @@ def hash_password(password: str) -> str:
 
 def create_access_token(email: EmailStr) -> str:
     """
-    Создает токен для пользователя
+    Создает токен для пользователя.
 
     Args:
-        email: Электронная почта
+        email: электронная почта.
     
     Returns:
-        Токен пользователя
+        Токен пользователя.
+
+    Raises:
+        Exception - если возникла ошибка при генерации токена. 
     """
 
     expire = datetime.now(timezone.utc) + timedelta(days=14)
     to_encode = {"email": email, "exp": expire}
 
     try:
-        encode_jwt = jwt.encode(
+        token = jwt.encode(
             to_encode, 
-            AUTH_DATA["secret_key"],
+            key=AUTH_DATA["secret_key"],
             algorithm=AUTH_DATA["algorithm"]
         )
     except Exception as error:
         raise error
-    else:
-        return encode_jwt
+    
+    return token
 
 
 def decode_access_token(token: str) -> EmailStr:
     """
-    Расшифровывает токен пользователя
+    Расшифровывает токен пользователя.
 
     Args:
-        token: токен пользователя
+        token: токен пользователя.
     
     Returns:
-        Электронную почту пользователя
+        Электронную почту пользователя.
+
+    Raises:
+        Exception - если возникла ошибка при расшифровке токена.
     """
 
     try:
@@ -72,8 +78,8 @@ def decode_access_token(token: str) -> EmailStr:
         )
     except Exception as error:
         raise error
-    else:
-        return user_data.get("email")
+    
+    return user_data.get("email")
 
 
 def verify_password(email: EmailStr, password: str) -> bool:
@@ -81,8 +87,8 @@ def verify_password(email: EmailStr, password: str) -> bool:
     Проверяет, соответствует ли введённый пароль сохранённому хэшу.
 
     Args:
-        email: Электронная почта пользователя.
-        password: Пароль, который нужно проверить.
+        email: электронная почта пользователя.
+        password: пароль, который нужно проверить.
     
     Returns:
         True - если пароль совпал, иначе False.
@@ -99,9 +105,27 @@ def verify_password(email: EmailStr, password: str) -> bool:
 
 
 def require_role(role: str):
+    """
+    Декоратор для авторизации пользователя.
+
+    Функция, к которой применяется декоратор, должна иметь аргумент
+    request: Request. Иначе возникнет ошибка.
+
+    Args:
+        role: роль, необходимая для выполнения функции.
+    
+    Raises:
+        HTTPException(401) - если пользователь не авторизован.
+        HTTPException(403) - если у пользователя нет доступа к данной функции.
+    """
+
     def decorator(func):
+        """Внутренняя функция декоратор."""
+
         @wraps(func)
         def wrapper(*args, **kwargs):
+            """Авторизует пользователя."""
+
             request: Request = kwargs.get("request")
             token = request.cookies.get("users_access_token")
 

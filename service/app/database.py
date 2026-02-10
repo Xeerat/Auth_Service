@@ -15,6 +15,7 @@ def get_database_url() -> str:
     Returns:   
         Строка URL для подключения к базе данных.
     """
+
     user = getenv("DB_USER")
     password = getenv("DB_PASSWORD")
     host = getenv("DB_HOST")
@@ -25,10 +26,10 @@ def get_database_url() -> str:
 
 def get_auth_data() -> dict:
     """
-    Получает особые данные для создания токенов.
+    Получает особые данные для создания токена.
 
     Returns:
-        Словарь с особыми данными для генерации токена
+        Словарь с особыми данными для генерации токена.
     """
 
     return {
@@ -38,8 +39,7 @@ def get_auth_data() -> dict:
 
 
 DB_URL = get_database_url()
+AUTH_DATA = get_auth_data()
 
 engine = create_engine(DB_URL)
 session_maker = sessionmaker(engine, expire_on_commit=False)
-
-AUTH_DATA = get_auth_data()

@@ -11,6 +11,7 @@ from migration.models import Users
 
 T = TypeVar("T")
 
+
 class BaseDAO(Generic[T]):
     """Базовый класс взаимодействия с данными."""
 
@@ -22,19 +23,21 @@ class BaseDAO(Generic[T]):
         Добавляет данные в базу данных.
 
         Args:
-            values: Словарь с данными для добавления.
+            values: словарь с данными для добавления.
 
                     Ключи должны соответствовать атрибутам ORM-модели.
                     Допустимый набор полей определяется конкретным DAO.
         
         Returns:
-            True - если функция завершилась без ошибок, иначе SQLAlchemyError.
+            True - если функция завершилась без ошибок.
+        
+        Raises:
+            SQLAlchemyError - если возникла ошибка при удалении.
         """
 
         with session_maker() as session:
             query = insert(cls.model).values(**values)
             session.execute(query)
-
             try:
                 session.commit()
             except SQLAlchemyError as error:
@@ -49,10 +52,10 @@ class BaseDAO(Generic[T]):
         Находит данные по условию.
 
         Args:
-            conditions: Набор условий.
+            conditions: набор условий.
         
         Returns:
-            Данные или None, если они не найдены.
+            Объект или None, если он не найден.
         """
 
         with session_maker() as session:
@@ -67,16 +70,18 @@ class BaseDAO(Generic[T]):
         Удаляет данные из базы данных.
 
         Args:
-            conditions: Набор условий.
+            conditions: набор условий.
         
         Returns:
-            True - если функция завершилась без ошибок, иначе SQLAlchemyError.
+            True - если функция завершилась без ошибок.
+
+        Raises:
+            SQLAlchemyError - если возникла ошибка при удалении.
         """
 
         with session_maker() as session:
             query = delete(cls.model).where(*conditions)
             session.execute(query)
-
             try:
                 session.commit()
             except SQLAlchemyError as error:
@@ -88,20 +93,22 @@ class BaseDAO(Generic[T]):
     @classmethod        
     def _update_data(cls, *conditions: ClauseElement, **values) -> bool:
         """
-        Обновляет данные в базе данных
+        Обновляет данные в базе данных.
 
         Args:
-            conditions: Набор условий
-            values: Словарь с полями и значениями для обновления
+            conditions: набор условий.
+            values: словарь с полями и значениями для обновления.
 
         Returns:
-            True - если функция завершилась без ошибок, иначе SQLAlchemyError.
+            True - если функция завершилась без ошибок.
+
+        Raises:
+            SQLAlchemyError - если возникла ошибка при обновлении.
         """
 
         with session_maker() as session:
             query = update(cls.model).where(*conditions).values(**values)
             session.execute(query)
-
             try:
                 session.commit()
             except SQLAlchemyError as error:
@@ -130,16 +137,20 @@ class UsersDAO(BaseDAO[Users]):
         Добавляет пользователя в базу данных.
 
         Args:
-            name: Имя пользователя.
-            email: Электронная почта.
-            password: Хэшированный пароль.
-            surname: Фамилия пользователя
-            middle_name: Отчество пользователя
+            name: имя пользователя.
+            email: электронная почта.
+            password: хэшированный пароль.
+            surname: фамилия пользователя.
+            middle_name: отчество пользователя.
 
         Returns:
-            True - если функция выполнилась без ошибок, иначе SQLAlchemyError.
+            True - если функция выполнилась без ошибок.
+
+        Raises:
+            SQLAlchemyError - если возникла ошибка при добавлении пользователя.
         """
 
+        # Первый пользователь является админом
         role = "admin" if cls._count_users == 0 else "user"
 
         result = super()._add_data(
@@ -163,21 +174,22 @@ class UsersDAO(BaseDAO[Users]):
         Находит пользователя в базе данных.
         
         Args:
-            email: Электронная почта.
+            email: электронная почта.
 
         Returns:
-            Пользователь - если найден, True - если найден, но не активный, 
+            Объект пользователя - если он найден.
+            True - если пользователь найден, но не активный.
             False - если не найден.
         """
 
         user = super()._find_where(cls.model.email == email)
+
         if user:
-            if user.is_active:
-                return user
-            else:
+            if not user.is_active:
                 return True
-        else:
-            return False
+            return user
+        
+        return False
 
     @classmethod
     def delete_user(cls, email: EmailStr) -> bool:
@@ -185,10 +197,13 @@ class UsersDAO(BaseDAO[Users]):
         Удаляет данные пользователя из базы данных.
         
         Args:
-            email: Электронная почта
+            email: электронная почта.
 
         Returns:
-            True - если функция завершилась без ошибок, иначе SQLAlchemyError.
+            True - если функция завершилась без ошибок.
+
+        Raises:
+            SQLAlchemyError - если возникла ошибка при удалении пользователя.
         """
 
         return super()._update_data(cls.model.email == email, is_active=False)
@@ -199,11 +214,14 @@ class UsersDAO(BaseDAO[Users]):
         Обновляет данные пользователя в базе данных.
 
         Args: 
-            email: Электронная почта.
-            values: Словарь с данными которые нужно поменять
+            email: электронная почта.
+            values: словарь с полями, которые нужно поменять.
 
         Returns:
-            True - если функция завершилась без ошибок, иначе SQLAlchemyError. 
+            True - если функция завершилась без ошибок.
+        
+        Raises:
+            SQLAlchemyError - если возникла ошибка во время обновления данных.
         """
 
         return super()._update_data(

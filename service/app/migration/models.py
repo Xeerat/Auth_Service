@@ -19,6 +19,13 @@ class Users(Base):
     role: Mapped[str] = mapped_column()
 
     def get_dict(self):
+        """
+        Выводит данные о пользователе в виде словаря.
+        
+        Returns:
+            Словарь с данными о пользователе.
+        """
+
         return {
             "id": self.id,
             "email": self.email,
