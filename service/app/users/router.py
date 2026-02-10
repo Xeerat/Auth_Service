@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Response, Request
+from pydantic import EmailStr
 
 from users.validation import SUser_registration, SUser_authentication
 from users.validation import SUser_update_data
-from users.auth import hash_password, create_access_token
+from users.auth import hash_password, create_access_token, require_role
 from users.auth import decode_access_token
+from users.admin import AdminRules
 from migration.models import Users
 from dao.dao_models import UsersDAO
 
@@ -90,3 +92,36 @@ def user_update(data: SUser_update_data, request: Request) -> dict:
     UsersDAO.update_user(email=user_email, **data)
 
     return {"message": "Данные успешно изменены"}
+
+
+@router.get("/data/", summary="Получение данных о пользователе")
+@require_role(role="admin")
+def user_data(email: EmailStr, request: Request) -> dict:
+    """Показывает данные о пользователе."""
+
+    user = UsersDAO.find_user(email=email)
+    return user.get_dict()
+
+
+@router.get("/rules", summary="Показ правил для админа")
+@require_role(role="admin")
+def get_admin_rules(request: Request) -> dict:
+    """Показывает правила для админа"""
+
+    return AdminRules.rules
+
+
+@router.post("/rules_add", summary="Добавление правила в правила админа")
+@require_role(role="admin")
+def add_admin_rules(new_rules: str, request: Request) -> dict:
+    """Добавляет правило в правила админа"""
+
+    return AdminRules.add_rules(new_rule=new_rules)
+
+
+@router.post("/rules_del", summary="Удаление правила из правил админа")
+@require_role(role="admin")
+def del_admin_rules(number_rule: int, request: Request) -> dict:
+    """Удаляет правило из правил админа"""
+
+    return AdminRules.del_rules(number_rule=number_rule)

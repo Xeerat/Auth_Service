@@ -16,3 +16,15 @@ class Users(Base):
     middle_name: Mapped[str] = mapped_column()
     password: Mapped[str] = mapped_column()
     is_active: Mapped[bool] = mapped_column()
+    role: Mapped[str] = mapped_column()
+
+    def get_dict(self):
+        return {
+            "id": self.id,
+            "email": self.email,
+            "name": self.name,
+            "surname": self.surname,
+            "middle_name": self.middle_name,
+            "is_active": self.is_active,
+            "role": self.role
+        }

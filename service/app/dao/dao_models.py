@@ -115,6 +115,7 @@ class UsersDAO(BaseDAO[Users]):
     """Класс взаимодействия с данными таблицы users."""
 
     model = Users
+    _count_users = 0
 
     @classmethod
     def add_user(
@@ -139,15 +140,23 @@ class UsersDAO(BaseDAO[Users]):
             True - если функция выполнилась без ошибок, иначе SQLAlchemyError.
         """
 
-        return super()._add_data(
+        role = "admin" if cls._count_users == 0 else "user"
+
+        result = super()._add_data(
             name=name, 
             email=email, 
             password=password,
             surname=surname,
             middle_name=middle_name,
-            is_active=True
+            is_active=True,
+            role=role
         )
 
+        if result:
+            cls._count_users += 1
+
+        return result
+    
     @classmethod
     def find_user(cls, email: EmailStr) -> Users | bool:
         """

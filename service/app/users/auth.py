@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta, timezone
+from functools import wraps
 
 from passlib.context import CryptContext
 from jose import jwt
 from pydantic import EmailStr
+from fastapi import HTTPException, Request
 
 from database import AUTH_DATA
 from dao.dao_models import UsersDAO
@@ -94,3 +96,36 @@ def verify_password(email: EmailStr, password: str) -> bool:
         return False
 
     return True
+
+
+def require_role(role: str):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            request: Request = kwargs.get("request")
+            token = request.cookies.get("users_access_token")
+
+            if token is None:
+                raise HTTPException(
+                    status_code=401, 
+                    detail="Пользователь не авторизован"
+                )
+
+            user_email = decode_access_token(token)
+            user = UsersDAO.find_user(email=user_email)
+
+            if isinstance(user, bool):
+                raise HTTPException(
+                    status_code=401, 
+                    detail="Пользователь не авторизован"
+                )
+          
+            if user.role != role:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Нет доступа"
+                )
+            
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
